@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #f7f8fa;
+  --card: #ffffff;
+  --ink: #1a1a1a;
+  --muted: #6b7280;
+  --line: #e8eaed;
+  --forest: #e30613;
+  --forest-deep: #c10510;
+  --moss: #f5f6f8;
+  --brass: #9ca3af;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-forest: var(--forest);
+  --color-forest-deep: var(--forest-deep);
+  --color-moss: var(--moss);
+  --color-brass: var(--brass);
+  --font-sans: var(--font-plex-sans), "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-plex-sans), "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+input[type="range"] {
+  accent-color: #e30613;
+}
