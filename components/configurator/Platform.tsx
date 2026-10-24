@@ -3,9 +3,9 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 
-// Bottom → top: darker base, lightest plateau on top (první / horní vrstva)
-const TERRACE = ["#a89472", "#b8a484", "#c9b898", "#d8cbb0", "#ebe4d4"] as const;
-const LINE = "#8f7e62";
+// Cool studio grays — Alux-like, not yellowish sand
+const TERRACE = ["#c4c6c9", "#d0d2d5", "#dcdee1", "#e6e8ea", "#f0f1f2"] as const;
+const LINE = "#a8abb0";
 
 /** Top surface Y — house + pergola sit here */
 export const TERRAIN_TOP_Y = 0.3;
@@ -92,11 +92,16 @@ export function TerrainBase() {
 
     // Contour rings spread across the whole big podium
     const contourScales = [0.98, 0.94, 0.9, 0.86, 0.82, 0.78, 0.74, 0.7];
+    const mat = new THREE.LineBasicMaterial({
+      color: LINE,
+      transparent: true,
+      opacity: 0.55,
+    });
     const contours = contourScales.map((s, i) => {
       const shape = makeOrganicShape(rx, rz, seed + 200 + i * 11, s);
       const tier = Math.min(Math.floor(i / 2), terraces.length - 1);
       return {
-        geo: makeContourLine(shape),
+        line: new THREE.Line(makeContourLine(shape), mat),
         y: terraces[tier].y + thicknesses[tier] + 0.008,
       };
     });
@@ -117,9 +122,7 @@ export function TerrainBase() {
         </mesh>
       ))}
       {contours.map((c, i) => (
-        <line key={`c-${i}`} geometry={c.geo} position={[0, c.y, 0]}>
-          <lineBasicMaterial color={LINE} transparent opacity={0.55} />
-        </line>
+        <primitive key={`c-${i}`} object={c.line} position={[0, c.y, 0]} />
       ))}
     </group>
   );

@@ -9,7 +9,7 @@ const PLANK_W = 0.16;
 const GAP = 0.01;
 const OVERHANG = 0.18;
 
-const WOOD = ["#c9a56a", "#b89050", "#d4b078", "#a88248", "#c4a060", "#b89858"] as const;
+const WOOD = ["#d2c4a8", "#c8b89a", "#d8ccb4", "#c0b090", "#d0c2a6", "#c6b69c"] as const;
 
 /**
  * Wooden deck under the pergola — clear planks sitting ON the terrain.

@@ -9,11 +9,11 @@ import { TerrainBase, TERRAIN_TOP_Y } from "@/components/configurator/Platform";
 /** Fixed garden-face Z of the house — never moves when kotvení changes */
 export const HOUSE_FRONT_Z = -2.15;
 
-const HOUSE = "#f7f7f5";
-const HOUSE_DIM = "#ebebe8";
-const HOUSE_RECESS = "#deded9";
-const TREE = "#bdbbb5";
-const LEAF = "#e4e2dc";
+const HOUSE = "#f5f6f7";
+const HOUSE_DIM = "#e8eaec";
+const HOUSE_RECESS = "#d9dce0";
+const TREE = "#b8babd";
+const LEAF = "#e2e4e6";
 
 const BODY_W = 12;
 const BODY_D = 7.2;
@@ -88,8 +88,18 @@ export function Context() {
 
       <WinterTree
         position={[-BODY_W / 2 - 3.6, TERRAIN_TOP_Y, houseCenterZ + halfD * 0.5]}
-        scale={1.2}
+        scale={1.25}
         seed={11}
+      />
+      <WinterTree
+        position={[-BODY_W / 2 - 5.4, TERRAIN_TOP_Y, houseCenterZ - halfD * 0.15]}
+        scale={0.95}
+        seed={29}
+      />
+      <WinterTree
+        position={[BODY_W / 2 + 3.2, TERRAIN_TOP_Y, houseCenterZ + halfD * 0.35]}
+        scale={1.1}
+        seed={47}
       />
     </group>
   );
@@ -221,7 +231,6 @@ function WinterTree({
       depth: number,
     ) => {
       if (depth <= 0 || len < 0.08) return;
-      if (dx > 0.12) dx *= 0.2;
       const inv = 1 / Math.hypot(dx, dy, dz);
       dx *= inv;
       dy *= inv;
@@ -231,29 +240,60 @@ function WinterTree({
       const nz = oz + dz * len;
       addBranch(ox, oy, oz, nx, ny, nz, radius, radius * 0.55, depth <= 1);
 
-      const children = depth > 3 ? 2 : depth > 1 ? 2 : 1;
+      // Even radial child branches — left and right equally
+      const children = depth > 3 ? 4 : depth > 1 ? 3 : 2;
+      const baseYaw = rand() * Math.PI * 2;
       for (let i = 0; i < children; i++) {
-        const spread = 0.45 + rand() * 0.7;
-        const yaw = Math.PI * 0.6 + (i / Math.max(children, 1)) * 1.6 + rand() * 0.4;
-        let cx = dx * 0.35 - Math.abs(Math.sin(yaw)) * spread - 0.1;
-        let cy = dy * 0.35 + 0.55 + rand() * 0.45;
-        let cz = dz * 0.35 + Math.cos(yaw) * spread * 0.8;
+        const spread = 0.55 + rand() * 0.75;
+        const yaw = baseYaw + (i / children) * Math.PI * 2 + (rand() - 0.5) * 0.35;
+        const elev = 0.35 + rand() * 0.55;
+        let cx = dx * 0.25 + Math.cos(yaw) * spread;
+        let cy = Math.max(0.2, dy * 0.2 + elev);
+        let cz = dz * 0.25 + Math.sin(yaw) * spread;
         const cl = Math.hypot(cx, cy, cz) || 1;
-        grow(nx, ny, nz, cx / cl, cy / cl, cz / cl, len * (0.55 + rand() * 0.2), radius * 0.52, depth - 1);
+        grow(
+          nx,
+          ny,
+          nz,
+          cx / cl,
+          cy / cl,
+          cz / cl,
+          len * (0.5 + rand() * 0.22),
+          radius * 0.55,
+          depth - 1,
+        );
       }
     };
 
-    grow(0, 0, 0, -0.05, 1, 0.02, 1.55, 0.065, 4);
-    grow(0, 1.15, 0, -0.9, 0.5, 0.2, 0.95, 0.032, 3);
-    grow(0, 1.55, 0, -0.65, 0.6, -0.4, 0.8, 0.028, 3);
-    grow(0, 1.9, 0, -0.5, 0.75, 0.45, 0.65, 0.022, 2);
+    // Trunk straight up, then balanced primary limbs around the canopy
+    grow(0, 0, 0, 0.02, 1, 0, 1.65, 0.072, 5);
+    const primaries = 6;
+    for (let i = 0; i < primaries; i++) {
+      const yaw = (i / primaries) * Math.PI * 2 + rand() * 0.25;
+      const elev = 0.42 + rand() * 0.28;
+      const h = 0.95 + i * 0.18;
+      grow(
+        0,
+        h,
+        0,
+        Math.cos(yaw),
+        elev,
+        Math.sin(yaw),
+        0.75 + rand() * 0.28,
+        0.028 + rand() * 0.008,
+        4,
+      );
+    }
+    // Top crown fillers
+    grow(0, 2.2, 0, 0.1, 0.9, 0.05, 0.55, 0.02, 3);
+    grow(0, 2.35, 0, -0.08, 0.92, -0.12, 0.5, 0.018, 2);
 
     const merged = mergeGeometries(geos) ?? geos[0] ?? new THREE.BufferGeometry();
     geos.forEach((g) => {
       if (g !== merged) g.dispose();
     });
 
-    const leafData = tips.slice(0, 36).flatMap(([x, y, z]) => {
+    const leafData = tips.slice(0, 72).flatMap(([x, y, z]) => {
       const out: { p: [number, number, number]; s: number; r: number }[] = [];
       for (let i = 0; i < 2; i++) {
         out.push({

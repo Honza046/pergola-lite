@@ -5,29 +5,73 @@ import { useMemo } from "react";
 import * as THREE from "three";
 
 import { Context, HOUSE_FRONT_Z } from "@/components/configurator/Context";
+import { PlacementHandle } from "@/components/configurator/PlacementHandle";
 import { TERRAIN_TOP_Y } from "@/components/configurator/Platform";
 import { SideLabels } from "@/components/configurator/SideLabels";
 import { DECK_HEIGHT, WoodenDeck } from "@/components/configurator/WoodenDeck";
+import { ledTempOptions, WALL_SETBACK } from "@/lib/catalog";
+import { getRoofFinish, type RoofFinish } from "@/lib/colors";
 import { useConfig } from "@/lib/store";
-import type { FillType, MountType, RoofModel } from "@/types/config";
+import type { FillType, LedTemp, MountType, RoofModel } from "@/types/config";
 
 const POST = 0.15;
 const BEAM = 0.16;
 const PARTITION = "#f0f0ed";
+/** Shared roof rafters (příčky) — same for glass / poly / thermo / carport */
+const RAFTER_W = 0.05;
+const RAFTER_H = 0.07;
+const RAFTER_Y = -0.022;
 
-/** Gap from fixed house front → product moves, house stays */
-function mountGap(mount: MountType) {
-  if (mount === "freestanding") return 0.45;
-  return 0.05;
+function rafterCountFor(width: number) {
+  return Math.max(3, Math.round((width - POST * 2) / 0.85));
+}
+
+/** X positions of roof dividing bars — same spacing for all sheet roofs */
+function rafterXs(width: number): number[] {
+  const spanW = width - POST * 2;
+  const n = rafterCountFor(width);
+  return Array.from({ length: n }, (_, i) => -spanW / 2 + spanW * ((i + 1) / (n + 1)));
+}
+
+function RoofRafters({
+  width,
+  depth,
+  frameColor,
+}: {
+  width: number;
+  depth: number;
+  frameColor: string;
+}) {
+  const spanW = width - POST * 2;
+  const spanD = depth - POST * 2;
+  const xs = rafterXs(width);
+  return (
+    <group>
+      {xs.map((x, i) => (
+        <mesh key={i} position={[x, RAFTER_Y, 0]} castShadow>
+          <boxGeometry args={[RAFTER_W, RAFTER_H, spanD - 0.04]} />
+          <FrameMat color={frameColor} />
+        </mesh>
+      ))}
+      <mesh position={[-spanW / 2 + 0.025, RAFTER_Y + 0.005, 0]} castShadow>
+        <boxGeometry args={[0.04, 0.055, spanD - 0.02]} />
+        <FrameMat color={frameColor} />
+      </mesh>
+      <mesh position={[spanW / 2 - 0.025, RAFTER_Y + 0.005, 0]} castShadow>
+        <boxGeometry args={[0.04, 0.055, spanD - 0.02]} />
+        <FrameMat color={frameColor} />
+      </mesh>
+    </group>
+  );
 }
 
 function FrameMat({ color }: { color: string }) {
   return (
     <meshStandardMaterial
       color={color}
-      metalness={0.82}
-      roughness={0.22}
-      envMapIntensity={1.15}
+      metalness={0.55}
+      roughness={0.42}
+      envMapIntensity={0.35}
     />
   );
 }
@@ -51,21 +95,24 @@ function Roof({
   width,
   depth,
   frameColor,
-  louvreColor,
+  finish,
   louvreAngle,
+  louvreSide,
 }: {
   model: RoofModel;
   width: number;
   depth: number;
   frameColor: string;
-  louvreColor: string;
+  finish: RoofFinish;
   louvreAngle: number;
+  louvreSide: "left" | "right";
 }) {
   if (model === "bioclimatic") {
     const count = Math.max(6, Math.round(depth / 0.22));
     const bladeW = width - POST * 2 - 0.08;
     const bladeD = (depth - POST * 2) / count - 0.02;
-    const rad = THREE.MathUtils.degToRad(louvreAngle);
+    const signed = louvreSide === "left" ? louvreAngle : -louvreAngle;
+    const rad = THREE.MathUtils.degToRad(signed);
     return (
       <group>
         {Array.from({ length: count }, (_, i) => {
@@ -74,10 +121,10 @@ function Roof({
             <mesh key={i} position={[0, 0, z]} rotation={[rad, 0, 0]} castShadow>
               <boxGeometry args={[bladeW, 0.04, bladeD]} />
               <meshStandardMaterial
-                color={louvreColor}
-                metalness={0.78}
-                roughness={0.24}
-                envMapIntensity={1.0}
+                color={finish.hex}
+                metalness={0.45}
+                roughness={0.48}
+                envMapIntensity={0.28}
               />
             </mesh>
           );
@@ -87,55 +134,162 @@ function Roof({
   }
 
   if (model === "glass") {
+    const spanW = width - POST * 2;
+    const spanD = depth - POST * 2;
+    const g = finish.glass ?? {
+      color: "#cfe8f5",
+      opacity: 0.5,
+      transmission: 0.82,
+      roughness: 0.06,
+    };
     return (
-      <mesh castShadow>
-        <boxGeometry args={[width - POST * 2, 0.02, depth - POST * 2]} />
-        <meshPhysicalMaterial
-          color="#cfe8f5"
-          transmission={0.85}
-          transparent
-          opacity={0.55}
-          roughness={0.05}
-          metalness={0.1}
-          thickness={0.4}
-        />
-      </mesh>
+      <group>
+        <mesh position={[0, 0.028, 0]} receiveShadow>
+          <boxGeometry args={[spanW, 0.018, spanD]} />
+          <meshPhysicalMaterial
+            color={g.color}
+            transmission={g.transmission}
+            transparent
+            opacity={g.opacity}
+            roughness={g.roughness}
+            metalness={0.05}
+            thickness={0.35}
+            depthWrite={false}
+          />
+        </mesh>
+        <RoofRafters width={width} depth={depth} frameColor={frameColor} />
+      </group>
     );
   }
 
   if (model === "polycarbonate") {
-    const ribs = Math.max(8, Math.round(width / 0.35));
+    const spanW = width - POST * 2;
+    const spanD = depth - POST * 2;
+    const p = finish.poly ?? { color: "#e8f0f4", opacity: 0.72 };
     return (
       <group>
-        <mesh castShadow>
-          <boxGeometry args={[width - POST * 2, 0.03, depth - POST * 2]} />
-          <meshStandardMaterial color="#e8f0f4" transparent opacity={0.72} roughness={0.4} />
+        <mesh position={[0, 0.028, 0]} castShadow receiveShadow>
+          <boxGeometry args={[spanW, 0.016, spanD]} />
+          <meshPhysicalMaterial
+            color={p.color}
+            transparent
+            opacity={Math.min(p.opacity, 0.55)}
+            transmission={0.35}
+            roughness={0.28}
+            metalness={0.02}
+            thickness={0.2}
+            depthWrite={false}
+          />
         </mesh>
-        {Array.from({ length: ribs }, (_, i) => {
-          const x = -width / 2 + POST + 0.1 + (i / (ribs - 1)) * (width - POST * 2 - 0.2);
+        <RoofRafters width={width} depth={depth} frameColor={frameColor} />
+      </group>
+    );
+  }
+
+  if (model === "thermo") {
+    // 40 mm PUR sandwich on top + shared aluminum rafters below
+    const spanW = width - POST * 2;
+    const spanD = depth - POST * 2;
+    const panelT = 0.04;
+    const pitch = 0.085;
+    const ribCount = Math.max(14, Math.round(spanW / pitch));
+    const seamEvery = Math.max(3, Math.round(1.05 / pitch));
+    const color = finish.hex;
+    const face = {
+      color,
+      metalness: 0.22,
+      roughness: 0.62,
+      envMapIntensity: 0.2,
+    };
+    return (
+      <group>
+        <mesh position={[0, 0.02, 0]} castShadow receiveShadow>
+          <boxGeometry args={[spanW, panelT, spanD]} />
+          <meshStandardMaterial {...face} />
+        </mesh>
+        {Array.from({ length: ribCount }, (_, i) => {
+          const x = -spanW / 2 + pitch / 2 + i * ((spanW - pitch) / Math.max(ribCount - 1, 1));
+          const isSeam = i % seamEvery === 0;
+          // Inset from front/back so ribs don't stick out as nubs over the fascia
+          const ribLen = Math.max(0.4, spanD - 0.22);
           return (
-            <mesh key={i} position={[x, 0.01, 0]}>
-              <boxGeometry args={[0.02, 0.04, depth - POST * 2]} />
-              <meshStandardMaterial color={frameColor} metalness={0.5} roughness={0.35} />
+            <mesh
+              key={i}
+              position={[x, 0.02 + panelT / 2 + (isSeam ? 0.004 : 0.0025), 0]}
+              castShadow={isSeam}
+            >
+              <boxGeometry
+                args={[isSeam ? 0.018 : 0.012, isSeam ? 0.008 : 0.005, ribLen]}
+              />
+              <meshStandardMaterial
+                color={isSeam ? "#2a2e32" : color}
+                metalness={isSeam ? 0.35 : 0.2}
+                roughness={isSeam ? 0.55 : 0.65}
+              />
             </mesh>
           );
         })}
+        <RoofRafters width={width} depth={depth} frameColor={frameColor} />
       </group>
     );
   }
 
   if (model === "carport") {
+    // Alux trapézový plech: žebra podél hloubky, hustý lichoběžník, flush v rámu
+    const spanW = width - POST * 2;
+    const spanD = depth - POST * 2;
+    const pitch = 0.155;
+    const ribCount = Math.max(14, Math.round(spanW / pitch));
+    const valleyH = 0.008;
+    const ribH = 0.026;
+    // Klasický trapéz: širší patka žebra, užší plochý hřeben
+    const ribBaseW = 0.072;
+    const ribCrestW = 0.038;
+    const ribLen = Math.max(0.4, spanD - 0.06);
+    const color = finish.hex;
+    const matProps = {
+      color,
+      metalness: 0.62,
+      roughness: 0.38,
+      envMapIntensity: 0.35,
+    };
+    // Údolí nízko v kapse rámu — hřebeny ≈ horní hrana nosníků
+    const baseY = 0.018;
     return (
       <group>
-        {Array.from({ length: 7 }, (_, i) => {
-          const z = -depth / 2 + POST + 0.15 + (i / 6) * (depth - POST * 2 - 0.3);
+        <mesh position={[0, baseY, 0]} castShadow receiveShadow>
+          <boxGeometry args={[spanW, valleyH, spanD]} />
+          <meshStandardMaterial {...matProps} />
+        </mesh>
+        {Array.from({ length: ribCount }, (_, i) => {
+          const x =
+            -spanW / 2 + pitch / 2 + i * ((spanW - pitch) / Math.max(ribCount - 1, 1));
+          const y0 = baseY + valleyH / 2;
           return (
-            <mesh key={i} position={[0, (i % 2) * 0.03, z]} castShadow>
-              <boxGeometry args={[width - POST * 2, 0.025, 0.28]} />
-              <meshStandardMaterial color={louvreColor} metalness={0.55} roughness={0.3} />
-            </mesh>
+            <group key={i} position={[x, 0, 0]}>
+              {/* tělo lichoběžníku */}
+              <mesh position={[0, y0 + ribH * 0.42, 0]} castShadow>
+                <boxGeometry args={[ribBaseW, ribH * 0.84, ribLen]} />
+                <meshStandardMaterial {...matProps} />
+              </mesh>
+              {/* plochý hřeben */}
+              <mesh position={[0, y0 + ribH * 0.92, 0]} castShadow>
+                <boxGeometry args={[ribCrestW, ribH * 0.2, ribLen]} />
+                <meshStandardMaterial {...matProps} />
+              </mesh>
+              {/* zkosené boky (jemná silueta trapézu) */}
+              <mesh position={[-ribBaseW * 0.38, y0 + ribH * 0.45, 0]} rotation={[0, 0, 0.38]}>
+                <boxGeometry args={[0.018, ribH * 0.75, ribLen]} />
+                <meshStandardMaterial {...matProps} />
+              </mesh>
+              <mesh position={[ribBaseW * 0.38, y0 + ribH * 0.45, 0]} rotation={[0, 0, -0.38]}>
+                <boxGeometry args={[0.018, ribH * 0.75, ribLen]} />
+                <meshStandardMaterial {...matProps} />
+              </mesh>
+            </group>
           );
         })}
+        <RoofRafters width={width} depth={depth} frameColor={frameColor} />
       </group>
     );
   }
@@ -143,8 +297,106 @@ function Roof({
   return (
     <mesh castShadow>
       <boxGeometry args={[width - POST * 2, 0.06, depth - POST * 2]} />
-      <meshStandardMaterial color={louvreColor} metalness={0.2} roughness={0.55} />
+      <meshStandardMaterial color={finish.hex} metalness={0.2} roughness={0.55} />
     </mesh>
+  );
+}
+
+function FillMaterial({ fill, color }: { fill: FillType; color: string }) {
+  if (fill === "screen") {
+    return (
+      <meshStandardMaterial color={color} transparent opacity={0.58} roughness={0.85} metalness={0.05} />
+    );
+  }
+  if (fill === "aluminum_blinds") {
+    return <meshStandardMaterial color={color} metalness={0.7} roughness={0.28} envMapIntensity={0.4} />;
+  }
+  if (fill === "pur_panel") {
+    // Matte sandwich panel — visually distinct from metallic blinds
+    return <meshStandardMaterial color={color} roughness={0.88} metalness={0.02} />;
+  }
+  if (fill === "glass_frameless") {
+    return (
+      <meshPhysicalMaterial
+        color="#e8f4fb"
+        transmission={0.88}
+        transparent
+        opacity={0.28}
+        roughness={0.04}
+        thickness={0.15}
+      />
+    );
+  }
+  // glass_framed (and legacy glass)
+  return (
+    <meshPhysicalMaterial
+      color="#d7eaf5"
+      transmission={0.7}
+      transparent
+      opacity={0.45}
+      roughness={0.08}
+      thickness={0.2}
+    />
+  );
+}
+
+/** Perimeter frame around a side fill — sits flush with posts / beam like real kce */
+function FillFrame({
+  isFrontBack,
+  span,
+  h,
+  frameColor,
+}: {
+  isFrontBack: boolean;
+  span: number;
+  h: number;
+  frameColor: string;
+}) {
+  const t = 0.045;
+  const depthT = 0.05;
+  if (isFrontBack) {
+    return (
+      <group>
+        {/* top + bottom */}
+        <mesh position={[0, h / 2 - t / 2, 0]}>
+          <boxGeometry args={[span, t, depthT]} />
+          <FrameMat color={frameColor} />
+        </mesh>
+        <mesh position={[0, -h / 2 + t / 2, 0]}>
+          <boxGeometry args={[span, t, depthT]} />
+          <FrameMat color={frameColor} />
+        </mesh>
+        {/* left + right */}
+        <mesh position={[-span / 2 + t / 2, 0, 0]}>
+          <boxGeometry args={[t, h, depthT]} />
+          <FrameMat color={frameColor} />
+        </mesh>
+        <mesh position={[span / 2 - t / 2, 0, 0]}>
+          <boxGeometry args={[t, h, depthT]} />
+          <FrameMat color={frameColor} />
+        </mesh>
+      </group>
+    );
+  }
+  return (
+    <group>
+      <mesh position={[0, h / 2 - t / 2, 0]}>
+        <boxGeometry args={[depthT, t, span]} />
+        <FrameMat color={frameColor} />
+      </mesh>
+      <mesh position={[0, -h / 2 + t / 2, 0]}>
+        <boxGeometry args={[depthT, t, span]} />
+        <FrameMat color={frameColor} />
+      </mesh>
+      <mesh position={[0, 0, -span / 2 + t / 2]}>
+        <boxGeometry args={[depthT, h, t]} />
+        <FrameMat color={frameColor} />
+      </mesh>
+      <mesh position={[0, 0, span / 2 - t / 2]}>
+        <boxGeometry args={[depthT, h, t]} />
+        <FrameMat color={frameColor} />
+      </mesh>
+    </group>
   );
 }
 
@@ -154,60 +406,288 @@ function FillPanel({
   width,
   depth,
   height,
+  frameColor,
+  fillColor,
 }: {
   side: "front" | "back" | "left" | "right";
   fill: FillType;
   width: number;
   depth: number;
   height: number;
+  frameColor: string;
+  fillColor: string;
 }) {
   if (fill === "none") return null;
 
-  const h = height - BEAM - 0.15;
-  const y = h / 2 + 0.05;
-  const mat =
-    fill === "screen" ? (
-      <meshStandardMaterial color="#2a2f33" transparent opacity={0.55} roughness={0.85} />
-    ) : (
-      <meshPhysicalMaterial
-        color="#d7eaf5"
-        transmission={0.7}
-        transparent
-        opacity={0.45}
-        roughness={0.08}
-        thickness={0.2}
-      />
-    );
+  /**
+   * Opening between post inner faces, flush with outer face of structure.
+   * Posts sit at ±(size/2 − POST/2); inner face = ±(size/2 − POST).
+   */
+  const beamBottom = height - BEAM;
+  const botY = 0.02;
+  const h = beamBottom - botY;
+  const y = botY + h / 2;
+  const openW = width - POST * 2;
+  const openD = depth - POST * 2;
+  const panelT = 0.05;
+  const isFrontBack = side === "front" || side === "back";
+  const span = isFrontBack ? openW : openD;
 
-  if (side === "front") {
+  // Flush with outer face of posts (same plane as outer edge of kce)
+  const pos: [number, number, number] =
+    side === "front"
+      ? [0, y, depth / 2 - panelT / 2]
+      : side === "back"
+        ? [0, y, -depth / 2 + panelT / 2]
+        : side === "left"
+          ? [-width / 2 + panelT / 2, y, 0]
+          : [width / 2 - panelT / 2, y, 0];
+
+  const inset = 0.05; // clear of FillFrame rails
+  const innerSpan = span - inset * 2;
+  const innerH = h - inset * 2;
+
+  if (fill === "aluminum_blinds") {
+    // Visible gaps + slight tilt so blades read as louvres, not a solid wall
+    const gap = 0.018;
+    const count = Math.max(10, Math.round(innerH / 0.12));
+    const bladeH = (innerH - gap * (count - 1)) / count;
+    const tilt = THREE.MathUtils.degToRad(28);
+    const bladeT = 0.012;
     return (
-      <mesh position={[0, y, depth / 2 - 0.04]} castShadow>
-        <boxGeometry args={[width - POST * 2 - 0.05, h, 0.03]} />
-        {mat}
-      </mesh>
+      <group position={pos}>
+        <FillFrame isFrontBack={isFrontBack} span={span} h={h} frameColor={frameColor} />
+        {Array.from({ length: count }, (_, i) => (
+          <mesh
+            key={i}
+            position={[0, -innerH / 2 + bladeH / 2 + i * (bladeH + gap), 0]}
+            rotation={isFrontBack ? [tilt, 0, 0] : [0, 0, -tilt]}
+            castShadow
+          >
+            <boxGeometry
+              args={
+                isFrontBack
+                  ? [innerSpan, bladeH * 0.72, bladeT]
+                  : [bladeT, bladeH * 0.72, innerSpan]
+              }
+            />
+            <FillMaterial fill={fill} color={fillColor} />
+          </mesh>
+        ))}
+      </group>
     );
   }
-  if (side === "back") {
+
+  if (fill === "pur_panel") {
+    // Sandwich wall: 3–4 wide matte panels with visible horizontal seams
+    const seams = 3;
+    const seam = 0.012;
+    const panelH = (innerH - seam * seams) / (seams + 1);
     return (
-      <mesh position={[0, y, -depth / 2 + 0.04]} castShadow>
-        <boxGeometry args={[width - POST * 2 - 0.05, h, 0.03]} />
-        {mat}
-      </mesh>
+      <group position={pos}>
+        <FillFrame isFrontBack={isFrontBack} span={span} h={h} frameColor={frameColor} />
+        {Array.from({ length: seams + 1 }, (_, i) => (
+          <mesh
+            key={i}
+            position={[0, -innerH / 2 + panelH / 2 + i * (panelH + seam), 0]}
+            castShadow
+          >
+            <boxGeometry
+              args={
+                isFrontBack
+                  ? [innerSpan, panelH, panelT * 0.85]
+                  : [panelT * 0.85, panelH, innerSpan]
+              }
+            />
+            <FillMaterial fill={fill} color={fillColor} />
+          </mesh>
+        ))}
+        {/* Dark seam strips between panels */}
+        {Array.from({ length: seams }, (_, i) => (
+          <mesh
+            key={`seam-${i}`}
+            position={[0, -innerH / 2 + panelH + seam / 2 + i * (panelH + seam), panelT * 0.15]}
+          >
+            <boxGeometry
+              args={
+                isFrontBack
+                  ? [innerSpan * 0.98, seam * 0.7, panelT * 0.35]
+                  : [panelT * 0.35, seam * 0.7, innerSpan * 0.98]
+              }
+            />
+            <meshStandardMaterial color="#1a1a1a" roughness={0.95} metalness={0} />
+          </mesh>
+        ))}
+      </group>
     );
   }
-  if (side === "left") {
+
+  if (fill === "glass_framed") {
+    const cols = 3;
+    const frameT = 0.04;
     return (
-      <mesh position={[-width / 2 + 0.04, y, 0]} castShadow>
-        <boxGeometry args={[0.03, h, depth - POST * 2 - 0.05]} />
-        {mat}
-      </mesh>
+      <group position={pos}>
+        <FillFrame isFrontBack={isFrontBack} span={span} h={h} frameColor={frameColor} />
+        <mesh castShadow>
+          <boxGeometry
+            args={
+              isFrontBack
+                ? [innerSpan, innerH, panelT * 0.4]
+                : [panelT * 0.4, innerH, innerSpan]
+            }
+          />
+          <FillMaterial fill={fill} color={fillColor} />
+        </mesh>
+        {isFrontBack
+          ? Array.from({ length: cols - 1 }, (_, i) => {
+              const x = -innerSpan / 2 + ((i + 1) / cols) * innerSpan;
+              return (
+                <mesh key={i} position={[x, 0, 0]}>
+                  <boxGeometry args={[frameT, innerH, panelT * 0.7]} />
+                  <FrameMat color={frameColor} />
+                </mesh>
+              );
+            })
+          : Array.from({ length: cols - 1 }, (_, i) => {
+              const z = -innerSpan / 2 + ((i + 1) / cols) * innerSpan;
+              return (
+                <mesh key={i} position={[0, 0, z]}>
+                  <boxGeometry args={[panelT * 0.7, innerH, frameT]} />
+                  <FrameMat color={frameColor} />
+                </mesh>
+              );
+            })}
+      </group>
     );
   }
+
+  // screen / frameless glass — framed bay flush with kce
   return (
-    <mesh position={[width / 2 - 0.04, y, 0]} castShadow>
-      <boxGeometry args={[0.03, h, depth - POST * 2 - 0.05]} />
-      {mat}
-    </mesh>
+    <group position={pos}>
+      <FillFrame isFrontBack={isFrontBack} span={span} h={h} frameColor={frameColor} />
+      <mesh castShadow>
+        <boxGeometry
+          args={
+            isFrontBack
+              ? [innerSpan, innerH, panelT * (fill === "screen" ? 0.35 : 0.45)]
+              : [panelT * (fill === "screen" ? 0.35 : 0.45), innerH, innerSpan]
+          }
+        />
+        <FillMaterial fill={fill} color={fillColor} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Pick evenly spaced indices from available rafters for LED count */
+function pickRafterIndices(total: number, count: number): number[] {
+  if (total <= 0) return [];
+  const n = Math.min(count, total);
+  if (n === 1) return [Math.floor((total - 1) / 2)];
+  return Array.from({ length: n }, (_, i) => Math.round((i / (n - 1)) * (total - 1)));
+}
+
+/**
+ * LED placement:
+ * - glass / poly / thermo / carport → along shared roof rafters
+ * - bioclimatic → cross strips under louvres
+ */
+function LedStrips({
+  model,
+  width,
+  depth,
+  roofY,
+  ledCount,
+  ledTemp,
+  nightMode,
+}: {
+  model: RoofModel;
+  width: number;
+  depth: number;
+  roofY: number;
+  ledCount: number;
+  ledTemp: LedTemp;
+  nightMode: boolean;
+}) {
+  const temp = ledTempOptions.find((t) => t.id === ledTemp) ?? ledTempOptions[0];
+  const glow = nightMode ? 2.8 : 1.6;
+  const lightI = nightMode ? 1.35 : 0.75;
+  const lightDist = nightMode ? 5.5 : 4;
+  // Flush under shared rafters (Roof group at roofY+0.02, rafter at RAFTER_Y)
+  const stripY = roofY + 0.02 + RAFTER_Y - RAFTER_H / 2 - 0.01;
+  const lightY = stripY - 0.1;
+  const alongRafters = model !== "bioclimatic";
+
+  if (alongRafters) {
+    const xs = rafterXs(width);
+    const indices = pickRafterIndices(xs.length, ledCount);
+    const stripLen = depth - POST * 2 - 0.2;
+    return (
+      <group>
+        {indices.map((idx) => {
+          const x = xs[idx]!;
+          return (
+            <group key={idx}>
+              <mesh position={[x, stripY, 0]}>
+                <boxGeometry args={[0.028, 0.014, stripLen]} />
+                <meshStandardMaterial
+                  color={temp.hex}
+                  emissive={temp.emissive}
+                  emissiveIntensity={glow}
+                  toneMapped={false}
+                />
+              </mesh>
+              <group position={[x, lightY, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <spotLight
+                  intensity={lightI * 2.2}
+                  distance={lightDist}
+                  angle={0.85}
+                  penumbra={0.55}
+                  decay={2}
+                  color={temp.emissive}
+                />
+              </group>
+            </group>
+          );
+        })}
+      </group>
+    );
+  }
+
+  // Bioclimatic — cross strips under louvres
+  const spanZ = depth - POST * 2 - 0.25;
+  const stripW = width - POST * 2 - 0.25;
+  const bioStripY = roofY - 0.025;
+  return (
+    <group>
+      {Array.from({ length: ledCount }, (_, i) => {
+        const z =
+          ledCount === 1 ? 0 : -spanZ / 2 + (i / (ledCount - 1)) * spanZ;
+        return (
+          <group key={i}>
+            <mesh position={[0, bioStripY, z]}>
+              <boxGeometry args={[stripW, 0.016, 0.04]} />
+              <meshStandardMaterial
+                color={temp.hex}
+                emissive={temp.emissive}
+                emissiveIntensity={glow}
+                toneMapped={false}
+              />
+            </mesh>
+            <group position={[0, bioStripY - 0.1, z]} rotation={[-Math.PI / 2, 0, 0]}>
+              <spotLight
+                intensity={lightI * 2.2}
+                distance={lightDist}
+                angle={0.9}
+                penumbra={0.5}
+                decay={2}
+                color={temp.emissive}
+              />
+            </group>
+          </group>
+        );
+      })}
+    </group>
   );
 }
 
@@ -227,7 +707,14 @@ function CornerPartition({ width, depth, height }: { width: number; depth: numbe
   );
 }
 
-export function PergolaModel() {
+export function PergolaModel({
+  studio = false,
+  fillsOverride,
+}: {
+  /** Clean product shot without house / labels / placement UI */
+  studio?: boolean;
+  fillsOverride?: Partial<Record<"front" | "back" | "left" | "right", FillType>>;
+} = {}) {
   const {
     model,
     mount,
@@ -235,73 +722,114 @@ export function PergolaModel() {
     depth,
     height,
     originX,
+    setback,
     louvreAngle,
+    louvreSide,
     frameColor,
-    louvreColor,
+    roofFinishId,
     fills,
+    fillColor,
     lighting,
+    ledCount,
+    ledTemp,
+    nightMode,
   } = useConfig();
 
-  const posts = useMemo(() => postPositions(width, depth, mount), [width, depth, mount]);
+  const activeFills = {
+    front: fillsOverride?.front ?? fills.front,
+    back: fillsOverride?.back ?? fills.back,
+    left: fillsOverride?.left ?? fills.left,
+    right: fillsOverride?.right ?? fills.right,
+  };
+
+  const studioMount: MountType = studio ? "freestanding" : mount;
+  const posts = useMemo(
+    () => postPositions(width, depth, studioMount),
+    [width, depth, studioMount],
+  );
+  const roofFinish = useMemo(
+    () => getRoofFinish(model, roofFinishId),
+    [model, roofFinishId],
+  );
   const roofY = height - BEAM / 2;
   const halfW = width / 2;
   const halfD = depth / 2;
 
-  // House stays put; pergola slides toward / away from HOUSE_FRONT_Z
-  const productZ = HOUSE_FRONT_Z + mountGap(mount) + depth / 2;
+  // House stays put; freestanding can slide farther from the wall
+  const gap = mount === "freestanding" ? setback : WALL_SETBACK;
+  const productZ = studio ? 0 : HOUSE_FRONT_Z + gap + depth / 2;
+  const posX = studio ? 0 : originX;
+  const groundY = studio ? 0 : TERRAIN_TOP_Y;
 
   return (
     <group>
-      <Context />
+      {!studio ? <Context /> : null}
 
-      <group position={[originX, TERRAIN_TOP_Y, productZ]}>
+      <group position={[posX, groundY, productZ]}>
         <WoodenDeck width={width} depth={depth} />
+        {!studio ? <PlacementHandle /> : null}
 
         {/* Structure sits on top of the wooden deck */}
         <group position={[0, DECK_HEIGHT, 0]}>
-          <SideLabels />
+          {!studio ? <SideLabels /> : null}
 
-          <Text
-            position={[-halfW - 0.75, 0.02, 0]}
-            rotation={[-Math.PI / 2, 0, Math.PI / 2]}
-            fontSize={0.2}
-            color="#7a7a76"
-            anchorX="center"
-            anchorY="middle"
-            letterSpacing={0.04}
-          >
-            Levá
-          </Text>
-          <Text
-            position={[halfW + 0.75, 0.02, 0]}
-            rotation={[-Math.PI / 2, 0, -Math.PI / 2]}
-            fontSize={0.2}
-            color="#7a7a76"
-            anchorX="center"
-            anchorY="middle"
-            letterSpacing={0.04}
-          >
-            Pravá
-          </Text>
-          <Text
-            position={[0, 0.02, halfD + 0.75]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            fontSize={0.2}
-            color="#7a7a76"
-            anchorX="center"
-            anchorY="middle"
-            letterSpacing={0.04}
-          >
-            Přední
-          </Text>
+          {!studio ? (
+            <>
+              <Text
+                position={[-halfW - 0.75, 0.02, 0]}
+                rotation={[-Math.PI / 2, 0, Math.PI / 2]}
+                fontSize={0.2}
+                color="#7a7a76"
+                anchorX="center"
+                anchorY="middle"
+                letterSpacing={0.04}
+              >
+                Levá
+              </Text>
+              <Text
+                position={[halfW + 0.75, 0.02, 0]}
+                rotation={[-Math.PI / 2, 0, -Math.PI / 2]}
+                fontSize={0.2}
+                color="#7a7a76"
+                anchorX="center"
+                anchorY="middle"
+                letterSpacing={0.04}
+              >
+                Pravá
+              </Text>
+              <Text
+                position={[0, 0.02, halfD + 0.75]}
+                rotation={[-Math.PI / 2, 0, 0]}
+                fontSize={0.2}
+                color="#7a7a76"
+                anchorX="center"
+                anchorY="middle"
+                letterSpacing={0.04}
+              >
+                Přední
+              </Text>
+              <Text
+                position={[0, 0.02, -halfD - 0.75]}
+                rotation={[-Math.PI / 2, 0, Math.PI]}
+                fontSize={0.2}
+                color="#7a7a76"
+                anchorX="center"
+                anchorY="middle"
+                letterSpacing={0.04}
+              >
+                Zadní
+              </Text>
+            </>
+          ) : null}
 
-          {mount === "corner" ? (
+          {!studio && mount === "corner" ? (
             <CornerPartition width={width} depth={depth} height={height} />
           ) : null}
 
+          {/* Posts stop flush with beam tops — no corner stubs above the roof */}
           {posts.map(([x, z], i) => (
-            <mesh key={i} position={[x, height / 2, z]} castShadow receiveShadow>
-              <boxGeometry args={[POST, height, POST]} />
+            <mesh key={i} position={[x, (height - 0.01) / 2, z]} castShadow receiveShadow>
+              <boxGeometry args={[POST, height - 0.01, POST]} />
               <FrameMat color={frameColor} />
             </mesh>
           ))}
@@ -323,42 +851,42 @@ export function PergolaModel() {
             <FrameMat color={frameColor} />
           </mesh>
 
-          <mesh position={[0, roofY + BEAM / 2 + 0.02, depth / 2 - POST / 2]} castShadow>
-            <boxGeometry args={[width + 0.04, 0.04, 0.06]} />
-            <FrameMat color={frameColor} />
-          </mesh>
-          <mesh position={[0, roofY + BEAM / 2 + 0.02, -depth / 2 + POST / 2]} castShadow>
-            <boxGeometry args={[width + 0.04, 0.04, 0.06]} />
-            <FrameMat color={frameColor} />
-          </mesh>
-
-          <group position={[0, roofY + 0.04, 0]}>
+          {/* Roof sits on the beams — no extra cap strips above the fascia */}
+          <group position={[0, roofY + 0.02, 0]}>
             <Roof
               model={model}
               width={width}
               depth={depth}
               frameColor={frameColor}
-              louvreColor={louvreColor}
+              finish={roofFinish}
               louvreAngle={louvreAngle}
+              louvreSide={louvreSide}
             />
           </group>
 
-          {(Object.keys(fills) as (keyof typeof fills)[]).map((side) => (
+          {(Object.keys(activeFills) as (keyof typeof activeFills)[]).map((side) => (
             <FillPanel
               key={side}
               side={side}
-              fill={fills[side]}
+              fill={activeFills[side]}
               width={width}
               depth={depth}
               height={height}
+              frameColor={frameColor}
+              fillColor={fillColor}
             />
           ))}
 
-          {lighting === "led" ? (
-            <mesh position={[0, roofY - 0.06, 0]}>
-              <boxGeometry args={[width - POST * 2 - 0.2, 0.02, depth - POST * 2 - 0.2]} />
-              <meshStandardMaterial color="#fff6d8" emissive="#ffe9a8" emissiveIntensity={1.4} />
-            </mesh>
+          {!studio && lighting === "led" ? (
+            <LedStrips
+              model={model}
+              width={width}
+              depth={depth}
+              roofY={roofY}
+              ledCount={ledCount}
+              ledTemp={ledTemp}
+              nightMode={nightMode}
+            />
           ) : null}
         </group>
       </group>

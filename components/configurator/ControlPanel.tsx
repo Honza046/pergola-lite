@@ -1,17 +1,23 @@
 "use client";
 
+import { useState } from "react";
+
+import { AccessoriesSection } from "@/components/configurator/AccessoriesSection";
+import { ColorSection } from "@/components/configurator/ColorPicker";
+import { ControlsSection } from "@/components/configurator/ControlsSection";
+import { FillSection } from "@/components/configurator/FillSection";
+import { InquiryModal } from "@/components/configurator/InquiryModal";
+import { LightingSection } from "@/components/configurator/LightingSection";
+import { ServicesSection } from "@/components/configurator/ServicesSection";
 import {
   models,
   mounts,
-  colors,
-  fills,
-  sides,
   dimensionLimits,
+  louvreSideOptions,
   widthExpandOptions,
 } from "@/lib/catalog";
-import { cn } from "@/lib/cn";
 import { useConfig } from "@/lib/store";
-import type { FillType, SideId } from "@/types/config";
+import { segBtn, selCard } from "@/lib/ui";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -75,12 +81,13 @@ function SliderRow({
 export function ControlPanel() {
   const config = useConfig();
   const activeModel = models.find((m) => m.id === config.model);
+  const [inquiryOpen, setInquiryOpen] = useState(false);
 
   return (
     <div className="flex h-full flex-col bg-white">
       <div className="border-b border-line px-4 py-4">
         <p className="text-[11px] font-medium tracking-[0.08em] text-muted uppercase">
-          Pergola Ateliér
+          Ateliér venku
         </p>
         <h2 className="mt-0.5 text-[22px] font-semibold tracking-tight text-ink">
           {activeModel?.title ?? "Pergola"}
@@ -98,19 +105,14 @@ export function ControlPanel() {
                   key={item.id}
                   type="button"
                   onClick={() => config.setModel(item.id)}
-                  className={cn(
-                    "flex gap-3 rounded-md border bg-white p-2 text-left transition",
-                    active
-                      ? "border-[#e30613] shadow-[0_0_0_1px_#e30613]"
-                      : "border-line hover:border-black/20",
-                  )}
+                  className={selCard(active, "flex gap-3 p-2 text-left")}
                 >
-                  <div className="size-[5.5rem] shrink-0 overflow-hidden rounded-sm bg-[#eceff2]">
+                  <div className="size-[5.5rem] shrink-0 overflow-hidden rounded-sm bg-[#eef1f3]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={item.image}
                       alt=""
-                      className="size-full object-cover"
+                      className="size-full object-cover object-center"
                     />
                   </div>
                   <span className="min-w-0 flex-1 self-center py-0.5 pr-1">
@@ -134,18 +136,18 @@ export function ControlPanel() {
                   key={item.id}
                   type="button"
                   onClick={() => config.setMount(item.id)}
-                  className={cn(
-                    "rounded-md border px-2 py-2.5 text-center text-xs font-medium transition",
-                    active
-                      ? "border-[#e30613] bg-[#e30613] text-white"
-                      : "border-line bg-white text-ink hover:border-black/20",
-                  )}
+                  className={segBtn(active)}
                 >
                   {item.title}
                 </button>
               );
             })}
           </div>
+          {config.mount === "freestanding" ? (
+            <p className="mt-3 text-[12px] leading-snug text-muted">
+              Pergolu posuneš chycením zeleného bodu uprostřed podlahy.
+            </p>
+          ) : null}
         </Section>
 
         <Section title="Rozměry">
@@ -167,12 +169,7 @@ export function ControlPanel() {
                       type="button"
                       title={item.hint}
                       onClick={() => config.setWidthExpand(item.id)}
-                      className={cn(
-                        "rounded-md border px-1.5 py-2 text-center text-[11px] font-medium leading-tight transition",
-                        active
-                          ? "border-[#e30613] bg-[#e30613] text-white"
-                          : "border-line bg-white text-ink hover:border-black/20",
-                      )}
+                      className={segBtn(active, "px-1.5 py-2 text-[11px] leading-tight")}
                     >
                       {item.title}
                     </button>
@@ -196,110 +193,54 @@ export function ControlPanel() {
               onChange={config.setHeight}
             />
             {config.model === "bioclimatic" ? (
-              <SliderRow
-                label="Otočení lamel"
-                value={config.louvreAngle}
-                min={0}
-                max={90}
-                step={1}
-                unit="°"
-                onChange={config.setLouvreAngle}
-              />
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-ink">Otevírání lamel</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {louvreSideOptions.map((item) => {
+                    const active = config.louvreSide === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        title={item.hint}
+                        onClick={() => config.setLouvreSide(item.id)}
+                        className={segBtn(active)}
+                      >
+                        {item.title}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 text-[11px] leading-snug text-muted">
+                  {louvreSideOptions.find((o) => o.id === config.louvreSide)?.hint}
+                </p>
+              </div>
             ) : null}
           </div>
         </Section>
 
         <Section title="Barvy">
-          <p className="mb-2 text-xs text-muted">Konstrukce</p>
-          <div className="mb-4 flex flex-wrap gap-2">
-            {colors.map((c) => (
-              <button
-                key={`frame-${c.id}`}
-                type="button"
-                title={c.label}
-                onClick={() => config.setFrameColor(c.hex)}
-                className={cn(
-                  "size-9 rounded-md border-2 transition",
-                  config.frameColor === c.hex ? "border-[#e30613] scale-105" : "border-white ring-1 ring-line",
-                )}
-                style={{ backgroundColor: c.hex }}
-              />
-            ))}
-          </div>
-          <p className="mb-2 text-xs text-muted">Střecha / lamely</p>
-          <div className="flex flex-wrap gap-2">
-            {colors.map((c) => (
-              <button
-                key={`roof-${c.id}`}
-                type="button"
-                title={c.label}
-                onClick={() => config.setLouvreColor(c.hex)}
-                className={cn(
-                  "size-9 rounded-md border-2 transition",
-                  config.louvreColor === c.hex ? "border-[#e30613] scale-105" : "border-white ring-1 ring-line",
-                )}
-                style={{ backgroundColor: c.hex }}
-              />
-            ))}
-          </div>
+          <ColorSection />
         </Section>
 
-        <Section title="Výplně stran">
-          <div className="space-y-2.5">
-            {sides.map((side) => (
-              <div key={side.id} className="flex items-center gap-2">
-                <span className="w-14 shrink-0 text-xs font-medium">{side.title}</span>
-                <div className="flex flex-1 gap-1">
-                  {fills.map((fill) => {
-                    const active = config.fills[side.id as SideId] === fill.id;
-                    return (
-                      <button
-                        key={fill.id}
-                        type="button"
-                        onClick={() => config.setFill(side.id as SideId, fill.id as FillType)}
-                        className={cn(
-                          "flex-1 rounded-md border px-1 py-1.5 text-[10px] font-medium transition",
-                          active
-                            ? "border-[#e30613] bg-[#e30613] text-white"
-                            : "border-line bg-white hover:border-black/20",
-                        )}
-                      >
-                        {fill.title}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+        <Section title="Výplně">
+          <FillSection />
         </Section>
 
         <Section title="Osvětlení">
-          <div className="grid grid-cols-2 gap-1.5">
-            {(
-              [
-                { id: "none" as const, title: "Bez osvětlení" },
-                { id: "led" as const, title: "LED pásek" },
-              ] as const
-            ).map((item) => {
-              const active = config.lighting === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => config.setLighting(item.id)}
-                  className={cn(
-                    "rounded-md border px-2 py-2.5 text-xs font-medium transition",
-                    active
-                      ? "border-[#e30613] bg-[#e30613] text-white"
-                      : "border-line bg-white hover:border-black/20",
-                  )}
-                >
-                  {item.title}
-                </button>
-              );
-            })}
-          </div>
+          <LightingSection />
+        </Section>
+
+        <Section title="Příslušenství">
+          <AccessoriesSection />
+        </Section>
+
+        <Section title="Ovládání">
+          <ControlsSection />
+        </Section>
+
+        <Section title="Služby">
+          <ServicesSection />
         </Section>
       </div>
 
@@ -311,16 +252,14 @@ export function ControlPanel() {
         </p>
         <button
           type="button"
-          className="inline-flex h-12 w-full items-center justify-center rounded-md bg-[#e30613] text-sm font-semibold text-white transition hover:bg-[#c10510]"
-          onClick={() => {
-            window.alert(
-              "Poptávka z 3D konfigurátoru (demo).\n\nSpecifikace je připravená — napojení na lead API doplníme později.",
-            );
-          }}
+          className="inline-flex h-12 w-full items-center justify-center rounded-md bg-forest text-sm font-semibold text-white transition hover:bg-forest-deep"
+          onClick={() => setInquiryOpen(true)}
         >
           Přidat do poptávky
         </button>
       </div>
+
+      {inquiryOpen ? <InquiryModal onClose={() => setInquiryOpen(false)} /> : null}
     </div>
   );
 }

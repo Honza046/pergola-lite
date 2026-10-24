@@ -21,19 +21,16 @@ export function Configurator() {
     <div className="flex h-dvh flex-col overflow-hidden bg-white">
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-line bg-white px-5">
         <div className="flex items-center gap-3">
-          <span className="grid size-8 place-items-center rounded-md bg-ink text-[11px] font-bold tracking-tight text-white">
+          <span className="grid size-8 place-items-center rounded-md bg-forest text-[10px] font-bold tracking-wide text-white">
             AV
           </span>
           <div>
             <p className="text-[13px] font-semibold tracking-tight text-ink">Ateliér venku</p>
-            <p className="text-[11px] text-muted">3D konfigurátor</p>
+            <p className="text-[11px] text-muted">Ukázka 3D konfigurátoru</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-[12px] text-muted">
+        <div className="text-[12px] text-muted">
           <span className="hidden sm:inline">CS</span>
-          <span className="hidden rounded-full border border-line px-2.5 py-1 sm:inline">
-            localhost:3003
-          </span>
         </div>
       </header>
 

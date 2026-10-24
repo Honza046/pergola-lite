@@ -18,9 +18,9 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "3D konfigurátor Lite | Ateliér venku",
+  title: "3D konfigurátor | Ateliér venku",
   description:
-    "Jednoduchý 3D konfigurátor pergoly — typ střechy, rozměry, barvy a výplně. Lehký kontext domu.",
+    "3D konfigurátor pergoly — typ střechy, rozměry, barvy, výplně a poptávka.",
 };
 
 export const viewport: Viewport = {

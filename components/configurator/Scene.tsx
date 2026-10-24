@@ -1,25 +1,35 @@
 "use client";
 
 import { Environment, OrbitControls, PerspectiveCamera, SoftShadows } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
-import { Suspense, useMemo, useState } from "react";
-import { Sun } from "lucide-react";
+import { Canvas, useThree } from "@react-three/fiber";
+import { Suspense, useEffect, useMemo } from "react";
+import { Moon, Sun } from "lucide-react";
 import * as THREE from "three";
 
 import { PergolaModel } from "@/components/configurator/PergolaModel";
+import { useConfig } from "@/lib/store";
 
-/** Realistic soft sky + layered clouds — no CDN */
+function ToneExposure({ night }: { night: boolean }) {
+  const gl = useThree((s) => s.gl);
+  useEffect(() => {
+    gl.toneMappingExposure = night ? 1.02 : 1.0;
+  }, [gl, night]);
+  return null;
+}
+
+/** Realistic soft sky — day blue / deep night */
 function AluxSkyDome({
-  bright,
+  night,
   sunPos,
 }: {
-  bright: boolean;
+  night: boolean;
   sunPos: [number, number, number];
 }) {
   const mat = useMemo(() => {
-    const top = bright ? new THREE.Color("#5a9fd4") : new THREE.Color("#3d4a5c");
-    const mid = bright ? new THREE.Color("#a8c8e4") : new THREE.Color("#6a7688");
-    const bot = bright ? new THREE.Color("#dce6ef") : new THREE.Color("#8a94a0");
+    // Soft evening / blue hour — not pitch black
+    const top = night ? new THREE.Color("#1a2740") : new THREE.Color("#7eb3d9");
+    const mid = night ? new THREE.Color("#2a3a55") : new THREE.Color("#c5d6e6");
+    const bot = night ? new THREE.Color("#3a465c") : new THREE.Color("#e8eef4");
     const sun = new THREE.Vector3(sunPos[0], sunPos[1], sunPos[2]).normalize();
     return new THREE.ShaderMaterial({
       side: THREE.BackSide,
@@ -29,7 +39,7 @@ function AluxSkyDome({
         midColor: { value: mid },
         botColor: { value: bot },
         sunDir: { value: sun },
-        bright: { value: bright ? 1.0 : 0.0 },
+        night: { value: night ? 1.0 : 0.0 },
       },
       vertexShader: /* glsl */ `
         varying vec3 vWorldPos;
@@ -44,7 +54,7 @@ function AluxSkyDome({
         uniform vec3 midColor;
         uniform vec3 botColor;
         uniform vec3 sunDir;
-        uniform float bright;
+        uniform float night;
         varying vec3 vWorldPos;
 
         float hash(vec2 p) {
@@ -78,26 +88,32 @@ function AluxSkyDome({
           vec3 col = mix(botColor, midColor, smoothstep(0.22, 0.5, t));
           col = mix(col, topColor, smoothstep(0.48, 0.95, t));
 
-          // sun glow
-          float sunAmt = pow(max(dot(n, sunDir), 0.0), 8.0);
-          col += vec3(1.0, 0.92, 0.75) * sunAmt * (0.35 + 0.45 * bright);
+          // sun / moon glow
+          float sunAmt = pow(max(dot(n, sunDir), 0.0), mix(8.0, 24.0, night));
+          vec3 glow = mix(vec3(1.0, 0.92, 0.75), vec3(0.72, 0.82, 1.0), night);
+          col += glow * sunAmt * mix(0.55, 0.35, night);
 
-          // soft volumetric clouds
+          // soft clouds (day) / faint haze (night)
           vec2 uv = n.xz / max(n.y + 0.35, 0.15);
           float clouds = fbm(uv * 2.2 + 0.15);
           clouds = smoothstep(0.42, 0.72, clouds);
           float band = smoothstep(0.0, 0.28, h) * smoothstep(0.78, 0.28, h);
-          col = mix(col, vec3(0.96, 0.97, 0.99), clouds * band * (0.5 + 0.25 * bright));
+          col = mix(col, mix(vec3(0.96, 0.97, 0.99), vec3(0.18, 0.22, 0.32), night), clouds * band * mix(0.55, 0.12, night));
 
-          // horizon haze
+          // stars at night
+          if (night > 0.5 && h > 0.15) {
+            float star = step(0.997, hash(floor(n.xy * 180.0)));
+            col += vec3(0.85, 0.9, 1.0) * star * smoothstep(0.15, 0.55, h);
+          }
+
           float haze = smoothstep(0.35, -0.05, h);
-          col = mix(col, botColor, haze * 0.35);
+          col = mix(col, botColor, haze * mix(0.35, 0.55, night));
 
           gl_FragColor = vec4(col, 1.0);
         }
       `,
     });
-  }, [bright, sunPos[0], sunPos[1], sunPos[2]]);
+  }, [night, sunPos[0], sunPos[1], sunPos[2]]);
 
   return (
     <mesh frustumCulled={false}>
@@ -111,34 +127,43 @@ function AluxSkyDome({
 const CAM_POS: [number, number, number] = [11.5, 6.2, 14.5];
 const CAM_TARGET: [number, number, number] = [0, 1.6, -0.8];
 
-function SceneContent({ bright }: { bright: boolean }) {
-  const sunPos: [number, number, number] = bright ? [9, 13, 5] : [-4, 8, 6];
-  const fogColor = bright ? "#d8e4f0" : "#8e98a6";
+function SceneContent({ night }: { night: boolean }) {
+  const sunPos: [number, number, number] = night ? [-6, 10, 4] : [9, 14, 6];
+  const fogColor = night ? "#2a3548" : "#e6ebf0";
 
   return (
     <>
       <PerspectiveCamera makeDefault position={CAM_POS} fov={30} near={0.1} far={250} />
+      <ToneExposure night={night} />
 
       <color attach="background" args={[fogColor]} />
-      <fog attach="fog" args={[fogColor, 32, 90]} />
+      <fog attach="fog" args={[fogColor, night ? 32 : 36, night ? 88 : 95]} />
 
-      <AluxSkyDome bright={bright} sunPos={sunPos} />
+      <AluxSkyDome night={night} sunPos={sunPos} />
 
-      <SoftShadows size={20} samples={10} focus={0.65} />
+      <SoftShadows size={18} samples={12} focus={0.8} />
 
-      <ambientLight intensity={bright ? 0.4 : 0.22} />
+      <ambientLight
+        intensity={night ? 0.2 : 0.55}
+        color={night ? "#3a4558" : "#f4f7fb"}
+      />
       <hemisphereLight
-        args={[bright ? "#eaf3ff" : "#a8b4c4", bright ? "#cfc4b0" : "#5c6066", bright ? 0.55 : 0.28]}
+        args={[
+          night ? "#4a5a72" : "#eef3f8",
+          night ? "#1c2028" : "#d8dde3",
+          night ? 0.32 : 0.48,
+        ]}
       />
 
+      {/* Sun / moon */}
       <directionalLight
         castShadow
-        intensity={bright ? 2.05 : 0.7}
+        intensity={night ? 0.42 : 1.15}
         position={sunPos}
-        color={bright ? "#fff4e0" : "#c0c8d8"}
+        color={night ? "#b8c8e0" : "#f5f7fa"}
         shadow-mapSize={[2048, 2048]}
-        shadow-bias={-0.0002}
-        shadow-normalBias={0.035}
+        shadow-bias={-0.00035}
+        shadow-normalBias={0.045}
         shadow-camera-near={1}
         shadow-camera-far={56}
         shadow-camera-left={-18}
@@ -146,12 +171,16 @@ function SceneContent({ bright }: { bright: boolean }) {
         shadow-camera-top={18}
         shadow-camera-bottom={-18}
       />
-      <directionalLight intensity={bright ? 0.4 : 0.15} position={[-8, 5, -4]} color="#cfe0ff" />
+      {!night ? (
+        <directionalLight intensity={0.35} position={[-8, 6, -4]} color="#e8eef5" />
+      ) : (
+        <directionalLight intensity={0.18} position={[8, 4, -6]} color="#8898b0" />
+      )}
 
       <Suspense fallback={null}>
         <Environment
-          preset={bright ? "park" : "dawn"}
-          environmentIntensity={bright ? 0.7 : 0.35}
+          preset={night ? "night" : "city"}
+          environmentIntensity={night ? 0.16 : 0.22}
         />
       </Suspense>
 
@@ -160,8 +189,10 @@ function SceneContent({ bright }: { bright: boolean }) {
       <OrbitControls
         makeDefault
         target={CAM_TARGET}
-        maxPolarAngle={Math.PI / 2.05}
-        minDistance={6}
+        // Allow looking up under the roof (ALUX-style underside view)
+        minPolarAngle={0.08}
+        maxPolarAngle={Math.PI * 0.88}
+        minDistance={4}
         maxDistance={28}
         enablePan={false}
       />
@@ -170,10 +201,12 @@ function SceneContent({ bright }: { bright: boolean }) {
 }
 
 export function Scene() {
-  const [bright, setBright] = useState(true);
+  const night = useConfig((s) => s.nightMode);
+  const setNightMode = useConfig((s) => s.setNightMode);
+  const hasLeds = useConfig((s) => s.lighting === "led");
 
   return (
-    <div className="relative h-full w-full bg-[#d8e4f0]">
+    <div className={`relative h-full w-full ${night ? "bg-[#2a3548]" : "bg-[#e6ebf0]"}`}>
       <Canvas
         shadows
         dpr={[1, 1.75]}
@@ -181,23 +214,32 @@ export function Scene() {
         onCreated={({ gl }) => {
           gl.shadowMap.enabled = true;
           gl.shadowMap.type = THREE.PCFShadowMap;
-          gl.toneMappingExposure = 1.05;
         }}
       >
         <Suspense fallback={null}>
-          <SceneContent bright={bright} />
+          <SceneContent night={night} />
         </Suspense>
       </Canvas>
 
       <div className="pointer-events-none absolute inset-0">
         <button
           type="button"
-          aria-label={bright ? "Tlumené světlo" : "Denní světlo"}
-          onClick={() => setBright((v) => !v)}
+          aria-label={night ? "Denní světlo" : "Noční režim"}
+          title={night ? "Přepnout na den" : "Přepnout na noc"}
+          onClick={() => setNightMode(!night)}
           className="pointer-events-auto absolute top-4 left-4 grid size-10 place-items-center rounded-full border border-black/8 bg-white/95 text-ink shadow-[0_2px_12px_rgba(0,0,0,0.08)] transition hover:bg-white"
         >
-          <Sun className="size-4" strokeWidth={1.75} />
+          {night ? (
+            <Sun className="size-4" strokeWidth={1.75} />
+          ) : (
+            <Moon className="size-4" strokeWidth={1.75} />
+          )}
         </button>
+        {night && hasLeds ? (
+          <p className="pointer-events-none absolute top-4 left-16 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white/90 backdrop-blur-sm">
+            LED svítí
+          </p>
+        ) : null}
       </div>
     </div>
   );
