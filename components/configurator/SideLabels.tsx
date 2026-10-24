@@ -17,7 +17,7 @@ function DimBadge({
   children: string;
 }) {
   return (
-    <Html position={position} center style={{ pointerEvents: "none" }} zIndexRange={[50, 0]}>
+    <Html position={position} center occlude style={{ pointerEvents: "none" }} zIndexRange={[10, 0]}>
       <div
         style={{
           background: "#fff",
@@ -62,16 +62,16 @@ function DimStem({
       <group>
         <mesh position={[mx, my, mz]}>
           <boxGeometry args={[0.012, len, 0.012]} />
-          <meshBasicMaterial color="#222" depthTest={false} />
+          <meshBasicMaterial color="#222" />
         </mesh>
         {/* End ticks — horizontal */}
         <mesh position={[from[0], from[1], from[2]]}>
           <boxGeometry args={[tick, 0.012, 0.012]} />
-          <meshBasicMaterial color="#222" depthTest={false} />
+          <meshBasicMaterial color="#222" />
         </mesh>
         <mesh position={[to[0], to[1], to[2]]}>
           <boxGeometry args={[tick, 0.012, 0.012]} />
-          <meshBasicMaterial color="#222" depthTest={false} />
+          <meshBasicMaterial color="#222" />
         </mesh>
       </group>
     );
@@ -84,16 +84,16 @@ function DimStem({
     <group>
       <mesh position={[mx, my, mz]} rotation={[0, angle, 0]}>
         <boxGeometry args={[0.012, 0.012, len]} />
-        <meshBasicMaterial color="#222" depthTest={false} />
+        <meshBasicMaterial color="#222" />
       </mesh>
       {/* End ticks perpendicular to stem */}
       <mesh position={[from[0], from[1], from[2]]} rotation={[0, angle, 0]}>
         <boxGeometry args={alongX ? [0.012, 0.012, tick] : [tick, 0.012, 0.012]} />
-        <meshBasicMaterial color="#222" depthTest={false} />
+        <meshBasicMaterial color="#222" />
       </mesh>
       <mesh position={[to[0], to[1], to[2]]} rotation={[0, angle, 0]}>
         <boxGeometry args={alongX ? [0.012, 0.012, tick] : [tick, 0.012, 0.012]} />
-        <meshBasicMaterial color="#222" depthTest={false} />
+        <meshBasicMaterial color="#222" />
       </mesh>
     </group>
   );

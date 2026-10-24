@@ -106,22 +106,22 @@ export function PlacementHandle() {
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      <mesh renderOrder={20}>
+      <mesh>
         <ringGeometry args={[0.16, 0.3, 40]} />
         <meshBasicMaterial
           color={active ? "#2f6b4a" : "#234836"}
           transparent
           opacity={dragging ? 0.98 : 0.88}
-          depthTest={false}
+          depthWrite={false}
         />
       </mesh>
-      <mesh renderOrder={21}>
+      <mesh>
         <circleGeometry args={[0.08, 24]} />
         <meshBasicMaterial
           color={active ? "#3d8a5c" : "#2f6b4a"}
           transparent
           opacity={0.95}
-          depthTest={false}
+          depthWrite={false}
         />
       </mesh>
     </group>
