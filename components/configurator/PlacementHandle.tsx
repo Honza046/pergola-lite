@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 import { HOUSE_FRONT_Z } from "@/components/configurator/Context";
+import { HideWhenBehindHouse } from "@/components/configurator/SideLabels";
 import { TERRAIN_TOP_Y } from "@/components/configurator/Platform";
 import { dimensionLimits } from "@/lib/catalog";
 import { useConfig } from "@/lib/store";
@@ -89,41 +90,45 @@ export function PlacementHandle() {
   const active = dragging || hover;
 
   return (
-    <group position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <mesh
-        onPointerDown={onPointerDown}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHover(true);
-          gl.domElement.style.cursor = "grab";
-        }}
-        onPointerOut={() => {
-          setHover(false);
-          if (!dragging) gl.domElement.style.cursor = "";
-        }}
-      >
-        <circleGeometry args={[0.42, 32]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-      </mesh>
+    <HideWhenBehindHouse>
+      <group position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh
+          onPointerDown={onPointerDown}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setHover(true);
+            gl.domElement.style.cursor = "grab";
+          }}
+          onPointerOut={() => {
+            setHover(false);
+            if (!dragging) gl.domElement.style.cursor = "";
+          }}
+        >
+          <circleGeometry args={[0.42, 32]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
 
-      <mesh>
-        <ringGeometry args={[0.16, 0.3, 40]} />
-        <meshBasicMaterial
-          color={active ? "#2f6b4a" : "#234836"}
-          transparent
-          opacity={dragging ? 0.98 : 0.88}
-          depthWrite={false}
-        />
-      </mesh>
-      <mesh>
-        <circleGeometry args={[0.08, 24]} />
-        <meshBasicMaterial
-          color={active ? "#3d8a5c" : "#2f6b4a"}
-          transparent
-          opacity={0.95}
-          depthWrite={false}
-        />
-      </mesh>
-    </group>
+        <mesh>
+          <ringGeometry args={[0.16, 0.3, 40]} />
+          <meshStandardMaterial
+            color={active ? "#2f6b4a" : "#234836"}
+            roughness={0.55}
+            metalness={0.1}
+            depthTest
+            depthWrite
+          />
+        </mesh>
+        <mesh>
+          <circleGeometry args={[0.08, 24]} />
+          <meshStandardMaterial
+            color={active ? "#3d8a5c" : "#2f6b4a"}
+            roughness={0.5}
+            metalness={0.1}
+            depthTest
+            depthWrite
+          />
+        </mesh>
+      </group>
+    </HideWhenBehindHouse>
   );
 }

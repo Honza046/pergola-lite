@@ -37,7 +37,7 @@ export function Context() {
       {/* Full organic podium — replaces the white square */}
       <TerrainBase />
 
-      <group position={[0, TERRAIN_TOP_Y, houseCenterZ]}>
+      <group position={[0, TERRAIN_TOP_Y, houseCenterZ]} userData={{ houseOccluder: true }}>
         <mesh position={[0, EAVES_H / 2, 0]} castShadow receiveShadow>
           <boxGeometry args={[BODY_W, EAVES_H, BODY_D]} />
           <meshStandardMaterial color={HOUSE} roughness={0.92} metalness={0} envMapIntensity={0.2} />
