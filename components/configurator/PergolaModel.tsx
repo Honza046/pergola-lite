@@ -12,7 +12,7 @@ import { DECK_HEIGHT, WoodenDeck } from "@/components/configurator/WoodenDeck";
 import { ledTempOptions, WALL_SETBACK } from "@/lib/catalog";
 import { getRoofFinish, type RoofFinish } from "@/lib/colors";
 import { useConfig } from "@/lib/store";
-import type { FillType, LedTemp, MountType, RoofModel } from "@/types/config";
+import type { AccessoryId, FillType, LedTemp, MountType, RoofModel } from "@/types/config";
 
 const POST = 0.15;
 const BEAM = 0.16;
@@ -621,6 +621,143 @@ function pickRafterIndices(total: number, count: number): number[] {
  * - glass / poly / thermo / carport → along shared roof rafters
  * - bioclimatic → cross strips under louvres
  */
+function Accessories3D({
+  width,
+  depth,
+  height,
+  roofY,
+  frameColor,
+  accessories,
+}: {
+  width: number;
+  depth: number;
+  height: number;
+  roofY: number;
+  frameColor: string;
+  accessories: Record<AccessoryId, number>;
+}) {
+  const halfW = width / 2;
+  const halfD = depth / 2;
+  const postX = halfW - POST / 2;
+  const postZ = halfD - POST / 2;
+  const qty = (id: AccessoryId) => accessories[id] ?? 0;
+
+  const rain = qty("rain_sensor") > 0;
+  const wind = qty("wind_sensor") > 0;
+  const sockets = Math.min(4, qty("socket"));
+  const heaters = Math.min(2, qty("heater"));
+  const remote = qty("remote") > 0;
+
+  if (!rain && !wind && sockets === 0 && heaters === 0 && !remote) return null;
+
+  const socketPosts: [number, number][] = [
+    [postX, postZ],
+    [-postX, postZ],
+    [postX, -postZ],
+    [-postX, -postZ],
+  ];
+
+  return (
+    <group>
+      {rain ? (
+        <group position={[0, roofY + BEAM / 2 + 0.04, halfD - POST / 2]}>
+          <mesh castShadow>
+            <boxGeometry args={[0.09, 0.035, 0.07]} />
+            <meshStandardMaterial color="#2a2d30" metalness={0.4} roughness={0.45} />
+          </mesh>
+          <mesh position={[0, 0.03, 0]} castShadow>
+            <sphereGeometry args={[0.028, 16, 12]} />
+            <meshStandardMaterial color="#1a1c1e" metalness={0.55} roughness={0.35} />
+          </mesh>
+        </group>
+      ) : null}
+
+      {wind ? (
+        <group position={[halfW - 0.28, roofY + BEAM / 2 + 0.02, -halfD + 0.28]}>
+          <mesh position={[0, 0.22, 0]} castShadow>
+            <cylinderGeometry args={[0.01, 0.012, 0.44, 8]} />
+            <meshStandardMaterial color={frameColor} metalness={0.5} roughness={0.4} />
+          </mesh>
+          <mesh position={[0, 0.46, 0]} castShadow>
+            <sphereGeometry args={[0.025, 12, 10]} />
+            <meshStandardMaterial color="#2a2d30" metalness={0.45} roughness={0.4} />
+          </mesh>
+          {[0, 1, 2].map((i) => {
+            const a = (i / 3) * Math.PI * 2;
+            return (
+              <mesh
+                key={i}
+                position={[Math.cos(a) * 0.09, 0.46, Math.sin(a) * 0.09]}
+                rotation={[0, -a, Math.PI / 2]}
+                castShadow
+              >
+                <capsuleGeometry args={[0.012, 0.05, 4, 8]} />
+                <meshStandardMaterial color="#3a3e42" metalness={0.35} roughness={0.5} />
+              </mesh>
+            );
+          })}
+        </group>
+      ) : null}
+
+      {Array.from({ length: sockets }, (_, i) => {
+        const [px, pz] = socketPosts[i] ?? socketPosts[0];
+        const outwardX = Math.sign(px) || 1;
+        return (
+          <group key={`sock-${i}`} position={[px - outwardX * 0.02, 1.05, pz]}>
+            <mesh position={[outwardX * 0.04, 0, 0]} castShadow>
+              <boxGeometry args={[0.06, 0.12, 0.08]} />
+              <meshStandardMaterial color="#ececec" roughness={0.55} metalness={0.05} />
+            </mesh>
+            <mesh position={[outwardX * 0.072, 0.02, 0]}>
+              <cylinderGeometry args={[0.016, 0.016, 0.012, 16]} />
+              <meshStandardMaterial color="#222" roughness={0.7} />
+            </mesh>
+            <mesh position={[outwardX * 0.072, -0.025, 0]}>
+              <cylinderGeometry args={[0.016, 0.016, 0.012, 16]} />
+              <meshStandardMaterial color="#222" roughness={0.7} />
+            </mesh>
+          </group>
+        );
+      })}
+
+      {Array.from({ length: heaters }, (_, i) => {
+        const n = heaters;
+        const x = n === 1 ? 0 : -width * 0.22 + i * width * 0.44;
+        return (
+          <group key={`heat-${i}`} position={[x, roofY - 0.12, 0]}>
+            <mesh castShadow>
+              <boxGeometry args={[Math.min(1.35, width * 0.35), 0.07, 0.12]} />
+              <meshStandardMaterial color="#1c1c1c" metalness={0.55} roughness={0.35} />
+            </mesh>
+            <mesh position={[0, -0.042, 0]}>
+              <boxGeometry args={[Math.min(1.2, width * 0.32), 0.015, 0.08]} />
+              <meshStandardMaterial
+                color="#ff6a2a"
+                emissive="#ff4a10"
+                emissiveIntensity={0.55}
+                roughness={0.4}
+              />
+            </mesh>
+          </group>
+        );
+      })}
+
+      {remote ? (
+        <group position={[postX - 0.09, 1.35, postZ - 0.02]} rotation={[0, -0.35, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[0.045, 0.16, 0.03]} />
+            <meshStandardMaterial color="#2b2f33" metalness={0.25} roughness={0.5} />
+          </mesh>
+          <mesh position={[0, 0.02, 0.018]}>
+            <boxGeometry args={[0.028, 0.05, 0.006]} />
+            <meshStandardMaterial color="#5a9e78" emissive="#234836" emissiveIntensity={0.25} />
+          </mesh>
+        </group>
+      ) : null}
+    </group>
+  );
+}
+
 function LedStrips({
   model,
   width,
@@ -763,6 +900,8 @@ export function PergolaModel({
     ledCount,
     ledTemp,
     nightMode,
+    accessoriesEnabled,
+    accessories,
   } = useConfig();
 
   const activeFills = {
@@ -907,6 +1046,17 @@ export function PergolaModel({
               mount={studioMount}
             />
           ))}
+
+          {!studio && accessoriesEnabled ? (
+            <Accessories3D
+              width={width}
+              depth={depth}
+              height={height}
+              roofY={roofY}
+              frameColor={frameColor}
+              accessories={accessories}
+            />
+          ) : null}
 
           {!studio && lighting === "led" ? (
             <LedStrips
