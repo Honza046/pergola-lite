@@ -660,7 +660,8 @@ function Accessories3D({
   return (
     <group>
       {rain ? (
-        <group position={[0, roofY + BEAM / 2 + 0.04, halfD - POST / 2]}>
+        // Mount on top of front beam (beam center = roofY, top = roofY + BEAM/2)
+        <group position={[0, roofY + BEAM / 2 + 0.018, halfD - POST / 2]}>
           <mesh castShadow>
             <boxGeometry args={[0.09, 0.035, 0.07]} />
             <meshStandardMaterial color="#2a2d30" metalness={0.4} roughness={0.45} />
@@ -673,13 +674,18 @@ function Accessories3D({
       ) : null}
 
       {wind ? (
-        <group position={[halfW - 0.28, roofY + BEAM / 2 + 0.02, -halfD + 0.28]}>
-          <mesh position={[0, 0.22, 0]} castShadow>
-            <cylinderGeometry args={[0.01, 0.012, 0.44, 8]} />
+        // Sit on back-right corner of the frame, not floating over the roof bay
+        <group position={[halfW - POST / 2, roofY + BEAM / 2, -halfD + POST / 2]}>
+          <mesh position={[0, 0.01, 0]} castShadow>
+            <cylinderGeometry args={[0.03, 0.035, 0.02, 12]} />
             <meshStandardMaterial color={frameColor} metalness={0.5} roughness={0.4} />
           </mesh>
-          <mesh position={[0, 0.46, 0]} castShadow>
-            <sphereGeometry args={[0.025, 12, 10]} />
+          <mesh position={[0, 0.16, 0]} castShadow>
+            <cylinderGeometry args={[0.01, 0.012, 0.3, 8]} />
+            <meshStandardMaterial color={frameColor} metalness={0.5} roughness={0.4} />
+          </mesh>
+          <mesh position={[0, 0.32, 0]} castShadow>
+            <sphereGeometry args={[0.022, 12, 10]} />
             <meshStandardMaterial color="#2a2d30" metalness={0.45} roughness={0.4} />
           </mesh>
           {[0, 1, 2].map((i) => {
@@ -687,11 +693,11 @@ function Accessories3D({
             return (
               <mesh
                 key={i}
-                position={[Math.cos(a) * 0.09, 0.46, Math.sin(a) * 0.09]}
+                position={[Math.cos(a) * 0.075, 0.32, Math.sin(a) * 0.075]}
                 rotation={[0, -a, Math.PI / 2]}
                 castShadow
               >
-                <capsuleGeometry args={[0.012, 0.05, 4, 8]} />
+                <capsuleGeometry args={[0.01, 0.04, 4, 8]} />
                 <meshStandardMaterial color="#3a3e42" metalness={0.35} roughness={0.5} />
               </mesh>
             );
