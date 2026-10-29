@@ -674,32 +674,58 @@ function Accessories3D({
       ) : null}
 
       {wind ? (
-        // Sit on back-right corner of the frame, not floating over the roof bay
+        // Cup anemometer seated on back-right frame corner
         <group position={[halfW - POST / 2, roofY + BEAM / 2, -halfD + POST / 2]}>
-          <mesh position={[0, 0.01, 0]} castShadow>
-            <cylinderGeometry args={[0.03, 0.035, 0.02, 12]} />
-            <meshStandardMaterial color={frameColor} metalness={0.5} roughness={0.4} />
+          {/* mounting foot flush on beam */}
+          <mesh position={[0, 0.008, 0]} castShadow>
+            <cylinderGeometry args={[0.038, 0.042, 0.016, 20]} />
+            <meshStandardMaterial color="#d8dadd" metalness={0.55} roughness={0.35} />
           </mesh>
-          <mesh position={[0, 0.16, 0]} castShadow>
-            <cylinderGeometry args={[0.01, 0.012, 0.3, 8]} />
-            <meshStandardMaterial color={frameColor} metalness={0.5} roughness={0.4} />
+          <mesh position={[0, 0.022, 0]} castShadow>
+            <cylinderGeometry args={[0.028, 0.032, 0.014, 16]} />
+            <meshStandardMaterial color="#c5c8cc" metalness={0.5} roughness={0.4} />
           </mesh>
-          <mesh position={[0, 0.32, 0]} castShadow>
-            <sphereGeometry args={[0.022, 12, 10]} />
-            <meshStandardMaterial color="#2a2d30" metalness={0.45} roughness={0.4} />
+          {/* mast */}
+          <mesh position={[0, 0.12, 0]} castShadow>
+            <cylinderGeometry args={[0.009, 0.011, 0.18, 12]} />
+            <meshStandardMaterial color="#bcbfc3" metalness={0.6} roughness={0.32} />
           </mesh>
+          {/* hub */}
+          <mesh position={[0, 0.215, 0]} castShadow>
+            <sphereGeometry args={[0.018, 16, 12]} />
+            <meshStandardMaterial color="#e8eaed" metalness={0.45} roughness={0.3} />
+          </mesh>
+          {/* three cups */}
           {[0, 1, 2].map((i) => {
-            const a = (i / 3) * Math.PI * 2;
+            const a = (i / 3) * Math.PI * 2 + 0.2;
+            const arm = 0.095;
+            const cx = Math.cos(a) * arm;
+            const cz = Math.sin(a) * arm;
             return (
-              <mesh
-                key={i}
-                position={[Math.cos(a) * 0.075, 0.32, Math.sin(a) * 0.075]}
-                rotation={[0, -a, Math.PI / 2]}
-                castShadow
-              >
-                <capsuleGeometry args={[0.01, 0.04, 4, 8]} />
-                <meshStandardMaterial color="#3a3e42" metalness={0.35} roughness={0.5} />
-              </mesh>
+              <group key={i}>
+                <mesh
+                  position={[cx * 0.5, 0.215, cz * 0.5]}
+                  rotation={[0, -a, Math.PI / 2]}
+                  castShadow
+                >
+                  <cylinderGeometry args={[0.004, 0.004, arm, 8]} />
+                  <meshStandardMaterial color="#cfd2d6" metalness={0.55} roughness={0.35} />
+                </mesh>
+                {/* hollow cup = hemisphere facing travel direction */}
+                <mesh
+                  position={[cx, 0.215, cz]}
+                  rotation={[Math.PI / 2, 0, a + Math.PI / 2]}
+                  castShadow
+                >
+                  <sphereGeometry args={[0.028, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
+                  <meshStandardMaterial
+                    color="#f2f3f5"
+                    metalness={0.35}
+                    roughness={0.28}
+                    side={THREE.DoubleSide}
+                  />
+                </mesh>
+              </group>
             );
           })}
         </group>
