@@ -95,7 +95,7 @@ export function ControlPanel() {
         <p className="mt-1 text-[13px] leading-snug text-muted">{activeModel?.description}</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
         <Section title="Model">
           <div className="grid gap-2.5">
             {models.map((item) => {

@@ -29,11 +29,21 @@
 
 html {
   color-scheme: light;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--paper);
   color: var(--ink);
+  /* Kill iOS rubber-band / white flash beyond the app shell */
+  position: fixed;
+  inset: 0;
+  width: 100%;
 }
 
 @layer components {

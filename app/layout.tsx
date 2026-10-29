@@ -25,7 +25,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full font-sans text-ink">{children}</body>
+      <body className="h-full overflow-hidden font-sans text-ink">{children}</body>
     </html>
   );
 }

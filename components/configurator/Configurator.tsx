@@ -18,7 +18,7 @@ const Scene = dynamic(
 
 export function Configurator() {
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-white">
+    <div className="flex h-dvh flex-col overflow-hidden overscroll-none bg-white">
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-line bg-white px-5">
         <div className="flex items-center gap-3">
           <span className="grid size-8 place-items-center rounded-md bg-forest text-[10px] font-bold tracking-wide text-white">
