@@ -431,7 +431,8 @@ function FillPanel({
   const y = botY + h / 2;
   const panelT = 0.05;
   const isFrontBack = side === "front" || side === "back";
-  const wallFlush = 0.01; // sit just clear of the partition / house face
+  // Overlap slightly into the wall so the joint reads as closed
+  const intoWall = 0.03;
 
   // Default: between post inner faces
   let span = isFrontBack ? width - POST * 2 : depth - POST * 2;
@@ -439,23 +440,23 @@ function FillPanel({
   let oz = 0;
 
   if (mount === "corner") {
-    // Left + back are walls — front runs to left wall; right runs to back wall
+    // Left + back are walls — front runs into left wall; right runs into back wall
     if (side === "front") {
-      const left = -width / 2 + wallFlush;
+      const left = -width / 2 - intoWall;
       const right = width / 2 - POST;
       span = right - left;
       ox = (left + right) / 2;
     } else if (side === "right") {
       const front = depth / 2 - POST;
-      const back = -depth / 2 + wallFlush;
+      const back = -depth / 2 - intoWall;
       span = front - back;
       oz = (front + back) / 2;
     }
   } else if (mount === "wall") {
-    // Back is house wall — side fills run flush to the back
+    // Back is house wall — side fills run flush into the back
     if (side === "left" || side === "right") {
       const front = depth / 2 - POST;
-      const back = -depth / 2 + wallFlush;
+      const back = -depth / 2 - intoWall;
       span = front - back;
       oz = (front + back) / 2;
     }
@@ -722,14 +723,15 @@ function LedStrips({
 /** Thin side wall for corner mount — full pergola depth */
 function CornerPartition({ width, depth, height }: { width: number; depth: number; height: number }) {
   const wallH = Math.max(height + 0.35, 3.1);
-  const thickness = 0.1;
+  const thickness = 0.12;
+  // Flush to outer left face of the frame (no visible air gap)
   return (
     <mesh
-      position={[-width / 2 - thickness / 2 - 0.02, wallH / 2, 0]}
+      position={[-width / 2 - thickness / 2 + 0.005, wallH / 2, -0.02]}
       castShadow
       receiveShadow
     >
-      <boxGeometry args={[thickness, wallH, depth + 0.15]} />
+      <boxGeometry args={[thickness, wallH, depth + 0.25]} />
       <meshStandardMaterial color={PARTITION} roughness={0.96} metalness={0} />
     </mesh>
   );

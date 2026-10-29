@@ -132,8 +132,8 @@ export const dimensionLimits = {
   setback: { min: 0.3, max: 4, step: 0.1 },
 } as const;
 
-/** Fixed gap when mounted to wall / corner */
-export const WALL_SETBACK = 0.05;
+/** Fixed gap when mounted to wall / corner — flush against facade */
+export const WALL_SETBACK = 0;
 
 export const widthExpandOptions: { id: WidthExpand; title: string; hint: string }[] = [
   { id: "left", title: "Levá", hint: "Při změně šířky se hýbe levá strana" },
