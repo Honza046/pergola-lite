@@ -408,6 +408,7 @@ function FillPanel({
   height,
   frameColor,
   fillColor,
+  mount,
 }: {
   side: "front" | "back" | "left" | "right";
   fill: FillType;
@@ -416,32 +417,59 @@ function FillPanel({
   height: number;
   frameColor: string;
   fillColor: string;
+  mount: MountType;
 }) {
   if (fill === "none") return null;
 
   /**
    * Opening between post inner faces, flush with outer face of structure.
-   * Posts sit at ±(size/2 − POST/2); inner face = ±(size/2 − POST).
+   * Corner / wall: extend fill to the house wall so no gap remains.
    */
   const beamBottom = height - BEAM;
   const botY = 0.02;
   const h = beamBottom - botY;
   const y = botY + h / 2;
-  const openW = width - POST * 2;
-  const openD = depth - POST * 2;
   const panelT = 0.05;
   const isFrontBack = side === "front" || side === "back";
-  const span = isFrontBack ? openW : openD;
+  const wallFlush = 0.01; // sit just clear of the partition / house face
+
+  // Default: between post inner faces
+  let span = isFrontBack ? width - POST * 2 : depth - POST * 2;
+  let ox = 0;
+  let oz = 0;
+
+  if (mount === "corner") {
+    // Left + back are walls — front runs to left wall; right runs to back wall
+    if (side === "front") {
+      const left = -width / 2 + wallFlush;
+      const right = width / 2 - POST;
+      span = right - left;
+      ox = (left + right) / 2;
+    } else if (side === "right") {
+      const front = depth / 2 - POST;
+      const back = -depth / 2 + wallFlush;
+      span = front - back;
+      oz = (front + back) / 2;
+    }
+  } else if (mount === "wall") {
+    // Back is house wall — side fills run flush to the back
+    if (side === "left" || side === "right") {
+      const front = depth / 2 - POST;
+      const back = -depth / 2 + wallFlush;
+      span = front - back;
+      oz = (front + back) / 2;
+    }
+  }
 
   // Flush with outer face of posts (same plane as outer edge of kce)
   const pos: [number, number, number] =
     side === "front"
-      ? [0, y, depth / 2 - panelT / 2]
+      ? [ox, y, depth / 2 - panelT / 2]
       : side === "back"
-        ? [0, y, -depth / 2 + panelT / 2]
+        ? [ox, y, -depth / 2 + panelT / 2]
         : side === "left"
-          ? [-width / 2 + panelT / 2, y, 0]
-          : [width / 2 - panelT / 2, y, 0];
+          ? [-width / 2 + panelT / 2, y, oz]
+          : [width / 2 - panelT / 2, y, oz];
 
   const inset = 0.05; // clear of FillFrame rails
   const innerSpan = span - inset * 2;
@@ -874,6 +902,7 @@ export function PergolaModel({
               height={height}
               frameColor={frameColor}
               fillColor={fillColor}
+              mount={studioMount}
             />
           ))}
 
