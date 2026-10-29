@@ -1,21 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, IBM_Plex_Sans } from "next/font/google";
 
 import "./globals.css";
-
-const plexSans = IBM_Plex_Sans({
-  subsets: ["latin", "latin-ext"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-sans",
-  display: "swap",
-});
-
-const fraunces = Fraunces({
-  subsets: ["latin", "latin-ext"],
-  weight: ["500", "600"],
-  variable: "--font-fraunces",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "3D konfigurátor | Ateliér venku",
@@ -31,7 +16,15 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="cs" className={`${plexSans.variable} ${fraunces.variable} h-full antialiased`}>
+    <html lang="cs" className="h-full antialiased">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="min-h-full font-sans text-ink">{children}</body>
     </html>
   );
